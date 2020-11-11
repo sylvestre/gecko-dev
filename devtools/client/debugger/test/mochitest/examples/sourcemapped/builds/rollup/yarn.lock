@@ -194,9 +194,10 @@ kind-of@^6.0.0:
   version "6.0.2"
   resolved "https://registry.yarnpkg.com/kind-of/-/kind-of-6.0.2.tgz#01146b36a6218e64e58f3a8d66de5d7fc6f6d051"
 
-lodash@^4.17.5:
+lodash@4.17.10:
   version "4.17.10"
   resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.10.tgz#1b7793cf7259ea38fb3661d4d38b3260af8ae4e7"
+  integrity sha512-UejweD1pDoXu+AD825lWwp4ZGtSwgnpZxb3JDViD7StjQz+Nb/6l093lx4OQ0foGWNRoc19mWy7BzL+UAK2iVg==
 
 math-random@^1.0.1:
   version "1.0.1"
@@ -288,15 +289,17 @@ resolve@1.8.1:
   dependencies:
     path-parse "^1.0.5"
 
-rollup-plugin-babel@^3.0.7:
+rollup-plugin-babel@3.0.7:
   version "3.0.7"
   resolved "https://registry.yarnpkg.com/rollup-plugin-babel/-/rollup-plugin-babel-3.0.7.tgz#5b13611f1ab8922497e9d15197ae5d8a23fe3b1e"
+  integrity sha512-bVe2y0z/V5Ax1qU8NX/0idmzIwJPdUGu8Xx3vXH73h0yGjxfv2gkFI82MBVg49SlsFlLTBadBHb67zy4TWM3hA==
   dependencies:
     rollup-pluginutils "^1.5.0"
 
-rollup-plugin-typescript2@^0.16.1:
+rollup-plugin-typescript2@0.16.1:
   version "0.16.1"
   resolved "https://registry.yarnpkg.com/rollup-plugin-typescript2/-/rollup-plugin-typescript2-0.16.1.tgz#72e1f8a2e450550eabdc3d474e735feae322b474"
+  integrity sha512-7x4NcMv8OR/Z6WskCv1QpvYUvHtuZ1jp1LFw16pEzNiY0d2Nm7z7SNUmPE7Vt2HRtQsigEksuYD8O4xi6enV7A==
   dependencies:
     fs-extra "5.0.0"
     resolve "1.8.1"
@@ -317,9 +320,10 @@ rollup-pluginutils@^1.5.0:
     estree-walker "^0.2.1"
     minimatch "^3.0.2"
 
-rollup@^0.63.0:
+rollup@0.63.4:
   version "0.63.4"
   resolved "https://registry.yarnpkg.com/rollup/-/rollup-0.63.4.tgz#cb58bf6c2a6c38542cae250684c962799ad7c00c"
+  integrity sha512-IGTH7u0P6bmu7cXL0g11UDYTR9WKku70cYlqVyOYdqLoQopBGmCbGC3SMeheqHymnehHe/5yf6BJ6BEoxQBVTQ==
   dependencies:
     "@types/estree" "0.0.39"
     "@types/node" "*"
@@ -328,9 +332,10 @@ tslib@1.9.3:
   version "1.9.3"
   resolved "https://registry.yarnpkg.com/tslib/-/tslib-1.9.3.tgz#d7e4dd79245d85428c4d7e4822a79917954ca286"
 
-typescript@^2.9.2:
+typescript@2.9.2:
   version "2.9.2"
   resolved "https://registry.yarnpkg.com/typescript/-/typescript-2.9.2.tgz#1cbf61d05d6b96269244eb6a3bce4bd914e0f00c"
+  integrity sha512-Gr4p6nFNaoufRIY4NMdpQRNmgxVIGMs4Fcu/ujdYk3nAZqk7supzBE9idmvfZIlH/Cuj//dvi+019qEue9lV0w==
 
 universalify@^0.1.0:
   version "0.1.2"

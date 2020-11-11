@@ -10,11 +10,11 @@
   },
   "license": "MPL-2.0",
   "dependencies": {
-    "asn1js": "^2.0.22",
-    "pkijs": "^2.1.81",
-    "pvutils": "^1.0.17"
+    "asn1js": "2.0.26",
+    "pkijs": "2.1.90",
+    "pvutils": "1.0.17"
   },
   "devDependencies": {
-    "browserify": "^16.2.3"
+    "browserify": "16.5.2"
   }
 }

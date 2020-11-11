@@ -288,7 +288,7 @@ superagent@~3.8.1:
     qs "^6.5.1"
     readable-stream "^2.3.5"
 
-taskcluster-client@^12.2.0:
+taskcluster-client@12.2.0:
   version "12.2.0"
   resolved "https://registry.yarnpkg.com/taskcluster-client/-/taskcluster-client-12.2.0.tgz#423aee3b17566d14f8ad23e4e47532265a74fb89"
   integrity sha512-2Fu5ICS2663kC2t8ymJYzRDnipj3DsCK//b+H/83RjJvC6cWZ0akKzq0ySvPlNA6ic2UcL4I03bJTCJYBX1dqg==

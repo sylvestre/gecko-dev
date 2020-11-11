@@ -10,6 +10,6 @@
     "test-ci": "jest --json"
   },
   "dependencies": {
-    "jest": "^24.6.0"
+    "jest": "24.8.0"
   }
 }
