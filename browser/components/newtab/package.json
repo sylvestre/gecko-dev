@@ -66,7 +66,7 @@
   "engines": {
     "firefox": ">=45.0 <=*",
     "//": "when changing node versions, also edit .nvmrc",
-    "node": "10.22.*",
+    "node": "10.23.*",
     "npm": "6.14.6"
   },
   "homepage": "https://github.com/mozilla/activity-stream",
